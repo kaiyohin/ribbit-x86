@@ -34,18 +34,24 @@
 
 (def-prim 'rib 3 (lambda (cgc)
   (if debug? (begin (display "#  ") (write '($rib)) (newline)))
-  ;; TODO...
-  (x86-pop  cgc (x86-rax)) ;; ce code est incorrect!
-  (x86-pop  cgc (x86-rax))
-  (x86-pop  cgc (x86-rax))
-  (x86-push cgc (x86-imm-int 400 0))))
+  (x86-add cgc (x86-r10) (x86-imm-int (* 8 3) 0)) ;; allouer 3 mots
+  (x86-pop cgc (x86-mem (* 8 -1) (x86-r10))) ;; field2 = pop
+  (x86-pop cgc (x86-mem (* 8 -2) (x86-r10))) ;; field1 = pop
+  (x86-pop cgc (x86-mem (* 8 -3) (x86-r10))) ;; field0 = pop
+  (x86-lea cgc (x86-rax) (x86-mem -17 (x86-r10))) ;; rax = référence vers rib
+  (x86-push cgc (x86-rax)) ;; empiler référence vers rib
 
 (def-prim 'rib? 1 (lambda (cgc)
   (define done (asm-make-label* cgc))
   (if debug? (begin (display "#  ") (write '($rib?)) (newline)))
-  ;; TODO...
-  (x86-pop  cgc (x86-rax)) ;; ce code est incorrect!
-  (x86-push cgc (x86-imm-int 400 0))))
+  (x86-pop  cgc (x86-rax))
+  (x86-and  cgc (x86-rax) 7)
+  (x86-cmp cgc (x86-rax) 0)
+  (x86-mov  cgc (x86-rax) (true-value cgc)) ;; result = #t (maybe)
+  (x86-jne   cgc done)                        ;; and op result != 0
+  (x86-mov  cgc (x86-rax) (false-value cgc)) ;; result = #f
+  (x86-label cgc done)
+  (x86-push cgc (x86-rax))))                 ;; push result
 
 (def-prim 'field0 1 (lambda (cgc)
   (if debug? (begin (display "#  ") (write '($field0)) (newline)))
@@ -97,10 +103,15 @@
 
 (def-prim '< 2 (lambda (cgc)
   (if debug? (begin (display "#  ") (write '($<)) (newline)))
-  ;; TODO...
-  (x86-pop  cgc (x86-rax)) ;; ce code est incorrect!
-  (x86-pop  cgc (x86-rax))
-  (x86-push cgc (x86-imm-int 400 0))))
+  (x86-pop  cgc (x86-rbx))                   ;; pop y into rbx
+  (x86-pop  cgc (x86-rax))                   ;; pop x into rax
+  (x86-cmp  cgc (x86-rax) (x86-rbx))         ;; compare x and y
+  (x86-mov  cgc (x86-rax) (true-value cgc))  ;; result = #t (maybe)
+  (x86-jl   cgc done)                        ;; x < y?
+  (x86-mov  cgc (x86-rax) (false-value cgc)) ;; result = #f
+  (x86-label cgc done)
+  (x86-push cgc (x86-rax))))  
+
 
 (def-prim '+ 2 (lambda (cgc)
   (if debug? (begin (display "#  ") (write '($+)) (newline)))
@@ -114,10 +125,10 @@
 
 (def-prim '* 2 (lambda (cgc)
   (if debug? (begin (display "#  ") (write '($*)) (newline)))
-  ;; TODO...
-  (x86-pop  cgc (x86-rax)) ;; ce code est incorrect!
-  (x86-pop  cgc (x86-rax))
-  (x86-push cgc (x86-imm-int 400 0))))
+  (x86-pop  cgc (x86-rax))(x86-mem 0 (x86-rsp))
+  (x86-shr cgc (x86-rax) 3)
+  (x86-imul2 cgc (x86-mem 0 (x86-rsp)) (x86-rax))))
+
 
 (def-prim 'quotient 2 (lambda (cgc)
   (if debug? (begin (display "#  ") (write '($quotient)) (newline)))
@@ -226,6 +237,12 @@
 (define (gen-jump cgc nargs)
   (if debug? (begin (display "#  ") (write (cons 'jump (cons nargs '()))) (newline)))
   ;; TODO...
+  (x86-mov  cgc (x86-rdi) (x86-mem 0 (x86-rsp))) ;; dépiler adressse retour
+  (x86-push cgc nargs)
+  
+
+  ;; dépiler l'adresse où jump
+  ;; jump à cette adresse en précisante l'adresse de retour qu'on a dépilé précedement
   (x86-push cgc (x86-imm-int 1 0)) ;; code à remplacer!
   (x86-call cgc (x86-global-label cgc 'exit)))
 
